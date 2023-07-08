@@ -1,0 +1,7 @@
+{
+    "compression": true,
+    "batch_size": 200,
+    "metadata_dump": "bso_dump",
+    "lmdb_size_Go": 25,
+    "is_level_debug": 1
+}

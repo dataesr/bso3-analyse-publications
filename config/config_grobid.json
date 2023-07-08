@@ -1,0 +1,8 @@
+{
+    "grobid_server": "grobid",
+    "grobid_port": "8070",
+    "batch_size": 10,
+    "sleep_time": 1,
+    "timeout": 3600,
+    "coordinates": [ "persName", "figure", "ref", "biblStruct", "formula", "s" ]
+}

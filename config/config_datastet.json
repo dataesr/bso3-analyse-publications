@@ -1,0 +1,19 @@
+{
+    "dataset_mention_host": "datastet",
+    "dataset_mention_port": "8060",
+    "data_path": "./data",
+    "aws_access_key_id": "",
+    "aws_secret_access_key": "",
+    "bucket_name": "",
+    "region": "",
+    "mongo_host": "",
+    "mongo_port": "",
+    "mongo_db": "",
+    "batch_size": 10,
+    "sleep_time": 1,
+    "concurrency": 4,
+    "timeout": 3600,
+    "log_file": "client.log",
+    "log_level": "DEBUG",
+    "biblio_glutton_url": ""
+}
