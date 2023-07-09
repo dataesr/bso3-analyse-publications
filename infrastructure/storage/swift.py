@@ -1,4 +1,5 @@
 import shutil
+import os
 from typing import List
 
 from swiftclient.service import SwiftError, SwiftService, SwiftUploadObject
@@ -12,6 +13,27 @@ logger = get_logger(__name__, level=LOGGER_LEVEL)
 
 METADATA_DUMP = config_harvester['metadata_dump']
 PUBLICATIONS_DUMP = config_harvester['publications_dump']
+
+key = os.getenv('OS_PASSWORD2')
+project_name = os.getenv('OS_PROJECT_NAME')
+project_id = os.getenv('OS_TENANT_ID')
+tenant_name = os.getenv('OS_TENANT_NAME')
+username = os.getenv('OS_USERNAME2')
+user = f'{tenant_name}:{username}'
+init_cmd = f"swift --os-auth-url https://auth.cloud.ovh.net/v3 --auth-version 3 \
+      --key {key}\
+      --user {user} \
+      --os-user-domain-name Default \
+      --os-project-domain-name Default \
+      --os-project-id {project_id} \
+      --os-project-name {project_name} \
+      --os-region-name GRA"
+
+def upload_object_to(container: str, input_filename: str, dest: str) -> None:
+    logger.debug(f'Uploading {input_filename} to {container} as {dest}')
+    cmd = init_cmd + f' upload {container} {input_filename} --object-name {dest}'
+    logger.debug(cmd)
+    os.system(cmd)
 
 
 class Swift(object):
@@ -61,6 +83,14 @@ class Swift(object):
         """
         Bulk upload of a list of files to current SWIFT object storage container
         """
+        #logger.debug('upload_files_to_swift')
+        #logger.debug(f'container {container}')
+        #logger.debug(file_path_dest_path_tuples)
+        
+        #for (source, destination) in file_path_dest_path_tuples:
+        #    upload_object_to(container, str(source), str(destination))
+        #return
+
         # Slightly modified to be able to upload to more than one dest_path
         objs = [SwiftUploadObject(file_path, object_name=str(dest_path)) for file_path, dest_path in
                 file_path_dest_path_tuples if isinstance(dest_path, OvhPath)]

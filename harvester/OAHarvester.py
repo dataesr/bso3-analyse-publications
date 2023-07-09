@@ -28,7 +28,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 logging.getLogger("keystoneclient").setLevel(logging.ERROR)
 logging.getLogger("swiftclient").setLevel(logging.ERROR)
 
-NB_THREADS = 2 * cpu_count()
+NB_THREADS = cpu_count()
 
 """
 Harvester for PDF available in open access. a LMDB index is used to keep track of the harvesting process and
@@ -94,14 +94,14 @@ class OAHarvester:
         envFilePath = os.path.join(DATA_PATH, "fail")
         self.env_fail = lmdb.open(envFilePath, map_size=lmdb_size)
 
-    def harvestUnpaywall(self, filepath, reprocess=False, destination_dir=""):
+    def harvestUnpaywall(self, filepath, count, reprocess=True, destination_dir=""):
         """
         Main method, use the Unpaywall dataset for getting pdf url for Open Access resources,
         download in parallel PDF, generate thumbnails (if selected), upload resources locally
         or on OVH and update the json description of the entries
         """
         batch_size_pdf = self.config.get("batch_size", 100)
-        count = _count_entries(gzip.open, filepath)
+        logger.debug(f'{count} entries')
         batch_gen = self._get_batch_generator(
             filepath, count, reprocess, batch_size_pdf)
         for batch in batch_gen:
@@ -112,17 +112,16 @@ class OAHarvester:
 
     def _process_entry(self, entry, reprocess):
         doi = entry["doi"]
-        try:
-            _check_entry(entry, doi, self.getUUIDByIdentifier, reprocess, self.env, self.env_doi)
-            url, entry, filename = self._parse_entry(entry)
-            if url:
-                return url, entry, filename
-        except Continue:
-            raise
+        _check_entry(entry, doi, self.getUUIDByIdentifier, reprocess, self.env, self.env_doi)
+        url, entry, filename = self._parse_entry(entry)
+        return url, entry, filename
 
     def _parse_entry(self, entry):
         """Parse entry to get url, entry, filename"""
+        logger.debug(entry)
         latest_observation = get_latest_publication(entry)
+        logger.debug(latest_observation)
+        logger.debug(entry.get('publisher_normalized'))
         if latest_observation["is_oa"]:
             urls_for_pdf = {}
             oa_locations = {}
@@ -152,21 +151,21 @@ class OAHarvester:
                     },
                     os.path.join(DATA_PATH, entry["id"] + PUBLICATION_EXT),
                 )
-        else:  # closed access (via publishers APIs)
-            # returns urls, entry, filename to match signature even though we really only care about the doi since we use publishers APIs.
-            if entry.get("publisher_normalized") == "Wiley":
-                return (
-                    [f"https://onlinelibrary.wiley.com/doi/pdfdirect/{entry['doi']}"],
-                    {"id": entry["id"], "doi": entry["doi"], "domain": entry["bso_classification"]},
-                    os.path.join(DATA_PATH, entry["id"] + PUBLICATION_EXT),
-                )
-            elif entry.get("publisher_normalized") == "Elsevier":
-                return (
-                    [f"https://api.elsevier.com/content/article/doi/{entry['doi']}"],
-                    {"id": entry["id"], "doi": entry["doi"], "domain": entry["bso_classification"]},
-                    os.path.join(DATA_PATH, entry["id"] + PUBLICATION_EXT),
-                )
-        raise Continue
+        #else:  # closed access (via publishers APIs)
+        # returns urls, entry, filename to match signature even though we really only care about the doi since we use publishers APIs.
+        if entry.get("publisher_normalized") == "Wiley":
+            return (
+                [f"https://onlinelibrary.wiley.com/doi/pdfdirect/{entry['doi']}"],
+                {"id": entry["id"], "doi": entry["doi"], "domain": entry["bso_classification"]},
+                os.path.join(DATA_PATH, entry["id"] + PUBLICATION_EXT),
+            )
+        elif entry.get("publisher_normalized") == "Elsevier":
+            return (
+                [f"https://api.elsevier.com/content/article/doi/{entry['doi']}"],
+                {"id": entry["id"], "doi": entry["doi"], "domain": entry["bso_classification"]},
+                os.path.join(DATA_PATH, entry["id"] + PUBLICATION_EXT),
+            )
+        return ([], None, None)
 
     def _get_batch_generator(self, filepath, count, reprocess, batch_size=100):
         """Reads gzip file and returns batches of processed entries"""
@@ -174,15 +173,13 @@ class OAHarvester:
         with gzip.open(filepath, "rt", encoding="utf-8") as gz:
             curr = 0
             for i, line in enumerate(gz):
+                logger.debug(f'line {i}')
                 if calculate_pct(i, count) != curr:
                     curr = calculate_pct(i, count)
                     logger.info(f"{curr}%")
-                try:
-                    url, entry, filename = self._process_entry(json.loads(line), reprocess)
-                    if url:
-                        batch.append([url, entry, filename])
-                except Continue:
-                    continue
+                url, entry, filename = self._process_entry(json.loads(line), reprocess)
+                if url:
+                    batch.append([url, entry, filename])
 
                 if (len(batch) != 0) and (len(batch) % batch_size == 0):
                     yield batch
@@ -216,6 +213,7 @@ class OAHarvester:
             if is_valid_pdf(local_filename + PUBLICATION_EXT):
                 valid_file = True
                 local_entry["valid_fulltext_pdf"] = True
+                logger.debug('Is Valid!')
 
             # Done wether we succeed or not in biblio-glutton-harvester so we keep it that way
             write_in_lmdb(env=self.env, key=local_entry["id"], value=_create_map_entry(local_entry))
@@ -266,6 +264,7 @@ class OAHarvester:
 
     def _upload_files(self, dest_path: OvhPath, local_filename, local_filename_json, **kwargs):
         """Uploads all the resources associated to the entry to SWIFT object storage"""
+        logger.debug(f'try to upload dest_path {dest_path} local_filename {local_filename} local_filename_json {local_filename_json}')
         try:
             files_to_upload = []
             if os.path.isfile(local_filename):

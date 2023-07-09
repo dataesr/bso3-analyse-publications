@@ -31,7 +31,7 @@ def get_harvester_config(config_file_path: str) -> dict:
     config_harvester["swift"]["os_region_name"] = os.getenv("OS_REGION_NAME")
     config_harvester["swift"]["os_auth_url"] = os.getenv("OS_AUTH_URL")
 
-    config_harvester["publications_dump"] = os.getenv("PUBLICATIONS_DUMP_BUCKET")
+    config_harvester["publications_dump"] = 'bso3_publications_dump'
     config_harvester["swift_container"] = config_harvester["publications_dump"]
 
     # Add env var secrets & pwd for database - postgres

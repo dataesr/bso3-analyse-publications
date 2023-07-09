@@ -1,4 +1,5 @@
 import os
+import requests
 from application.server.main.logger import get_logger
 logger = get_logger(__name__)
 
@@ -21,3 +22,12 @@ def download_object(container: str, filename: str, out: str) -> None:
     logger.debug(f'Downloading {filename} from {container} to {out}')
     cmd = init_cmd + f' download {container} {filename} -o {out}'
     os.system(cmd)
+
+def upload_object(container: str, filename: str) -> None:
+    logger.debug(f'Uploading {filename} to {container}')
+    cmd = init_cmd + f' upload {container} {filename}'
+    os.system(cmd)
+
+def get_ip():
+    ip = requests.get('https://api.ipify.org').text
+    return ip
