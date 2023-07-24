@@ -118,10 +118,7 @@ class OAHarvester:
 
     def _parse_entry(self, entry):
         """Parse entry to get url, entry, filename"""
-        logger.debug(entry)
         latest_observation = get_latest_publication(entry)
-        logger.debug(latest_observation)
-        logger.debug(entry.get('publisher_normalized'))
         if latest_observation["is_oa"]:
             urls_for_pdf = {}
             oa_locations = {}
@@ -173,7 +170,6 @@ class OAHarvester:
         with gzip.open(filepath, "rt", encoding="utf-8") as gz:
             curr = 0
             for i, line in enumerate(gz):
-                logger.debug(f'line {i}')
                 if calculate_pct(i, count) != curr:
                     curr = calculate_pct(i, count)
                     logger.info(f"{curr}%")

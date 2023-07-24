@@ -3,12 +3,28 @@ import os
 import json
 import gzip
 from typing import List, Tuple
+from time import time
+from glob import glob
+import subprocess
+from concurrent.futures import ThreadPoolExecutor
+
+import requests
+
 from infrastructure.database.db_handler import DBHandler
 from infrastructure.storage.swift import Swift
 from config.harvester_config import config_harvester
 from application.server.main.utils import download_object
 from harvester.OAHarvester import OAHarvester
 from config.db_config import engine
+from ovh_handler import download_files, upload_and_clean_up
+from config.processing_service_namespaces import ServiceNamespace, grobid_ns, softcite_ns, datastet_ns
+from config.logger_config import LOGGER_LEVEL
+
+from grobid_client.grobid_client import GrobidClient
+
+from run_grobid import run_grobid
+from run_softcite import run_softcite
+from run_datastet import run_datastet
 
 from application.server.main.logger import get_logger
 logger = get_logger(__name__)
@@ -71,3 +87,80 @@ def write_partitioned_filtered_metadata_file(db_handler: DBHandler,
     with gzip.open(filtered_metadata_filename, 'wt') as f_out:
         f_out.write(os.linesep.join([json.dumps(entry) for entry in filtered_publications_metadata_json_list]))
     return len(filtered_publications_metadata_json_list)
+
+def create_task_process(grobid_partition_files, softcite_partition_files, datastet_partition_files):
+    logger.debug(f"Call with args: {grobid_partition_files, softcite_partition_files, datastet_partition_files}")
+    _swift = Swift(config_harvester)
+    db_handler: DBHandler = DBHandler(engine=engine, table_name='harvested_status_table', swift_handler=_swift)
+
+    services_ns = [grobid_ns, softcite_ns, datastet_ns]
+    list_partition_files = [grobid_partition_files, softcite_partition_files, datastet_partition_files]
+    for service_ns, partition_files in zip(services_ns, list_partition_files):
+        download_files(_swift, service_ns.dir, partition_files)
+
+    start_time = time()
+    run_processing_services()
+    total_time = time()
+    logger.info(f"Total runtime: {round(total_time - start_time, 3)}s for {max(map(len, list_partition_files))} files")
+
+
+    for service_ns in services_ns:
+        entries_to_update = compile_records_for_db(service_ns, db_handler)
+        upload_and_clean_up(_swift, service_ns)
+        db_handler.update_database_processing(entries_to_update)
+
+def run_processing_services():
+    from softdata_mentions_client.client import softdata_mentions_client
+    """Run parallel calls to the different services when there are files to process"""
+    processing_futures = []
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        if next(iter(glob(grobid_ns.dir + '*')), None):
+            processing_futures.append(
+                executor.submit(run_grobid, None, grobid_ns.dir, GrobidClient))
+        if next(iter(glob(softcite_ns.dir + '*')), None):
+            processing_futures.append(
+                executor.submit(run_softcite, None, softcite_ns.dir, softdata_mentions_client))
+        if next(iter(glob(datastet_ns.dir + '*')), None):
+            processing_futures.append(
+                executor.submit(run_datastet, None, datastet_ns.dir, softdata_mentions_client))
+    for future in processing_futures:
+        future.result()
+
+def compile_records_for_db(service_ns: ServiceNamespace, db_handler: DBHandler) -> List[Tuple[str,str,str]]:
+    """List the output files of a service to determine what to update in db.
+    Returns [(uuid, service, version), ...]"""
+    local_files = glob(service_ns.dir + '*')
+    service_version = get_service_version(service_ns.suffix, local_files)
+    processed_publications = [
+        (db_handler._get_uuid_from_path(file), service_ns.service_name, service_version)
+        for file in local_files if file.endswith(service_ns.suffix)
+    ]
+    return processed_publications
+
+def get_service_version(file_suffix: str, local_files: List[str]) -> str:
+    """Return the version of the service that produced the files"""
+    processed_files = [file for file in local_files if file.endswith(file_suffix)]
+    if processed_files:
+        if file_suffix == datastet_ns.suffix:
+            return get_softdata_version(processed_files[0])
+        if file_suffix == softcite_ns.suffix:
+            return get_softdata_version(processed_files[0])
+        elif file_suffix == grobid_ns.suffix:
+            return get_grobid_version()
+    else:
+        return "0"
+
+def get_softdata_version(softdata_file_path: str) -> str:
+    """Get the version of softcite or datastet used by reading from an output file"""
+    with open(softdata_file_path, 'r') as f:
+        softdata_version = json.load(f)['version']
+    return softdata_version
+
+
+def get_grobid_version() -> str:
+    """Get the version of grobid used by a request to the grobid route /api/version"""
+    with open(grobid_ns.config_path, 'r') as f:
+        config = json.load(f)
+    url = f"http://{config['grobid_server']}:{config['grobid_port']}/api/version"
+    grobid_version = requests.get(url).text
+    return grobid_version

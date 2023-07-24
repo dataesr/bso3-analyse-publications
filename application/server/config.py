@@ -7,7 +7,7 @@ class BaseConfig(object):
     """Base configuration."""
     WTF_CSRF_ENABLED = True
     REDIS_URL = 'redis://redis:6379/0'
-    QUEUES = ['pdf-harvester']
+    QUEUES = ['pdf-harvester', 'pdf-processor']
 
 
 class DevelopmentConfig(BaseConfig):
