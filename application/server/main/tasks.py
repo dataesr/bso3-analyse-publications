@@ -22,6 +22,9 @@ from config.logger_config import LOGGER_LEVEL
 
 from grobid_client.grobid_client import GrobidClient
 
+# la ligne suivante empêche le worker de démarrer ?
+#from softdata_mentions_client.client import softdata_mentions_client
+
 from run_grobid import run_grobid
 from run_softcite import run_softcite
 from run_datastet import run_datastet
