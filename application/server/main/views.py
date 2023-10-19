@@ -2,6 +2,7 @@ import os
 import requests
 import redis
 import json
+import string
 from typing import Callable, List
 
 from flask import Blueprint, current_app, jsonify, render_template, request
@@ -15,7 +16,7 @@ from harvester.elsevier_client import ElsevierClient
 from harvester.exception import FailedRequest
 from harvester.wiley_client import WileyClient
 from application.server.main.utils import init_cmd
-from application.server.main.tasks import create_task_harvest, create_task_process
+from application.server.main.tasks import create_task_harvest, create_task_process, create_task_collect_results
 from application.server.main.utils import upload_object, get_ip
 from ovh_handler import generateStoragePath, get_partitions
 from config.db_config import engine
@@ -113,6 +114,30 @@ def run_task_process():
             if break_after_one:
                 break
     return jsonify(response_objects)
+
+@main_blueprint.route("/collect", methods=["POST"])
+def run_task_collect():
+    """
+    Collect results from Grobid, Softcite and Datastet
+    """
+    args = request.get_json(force=True)
+
+    hex_digits = string.hexdigits[0:16]
+    for x in hex_digits:
+        for y in hex_digits:
+            prefix = f'{x}{y}'
+            new_args = args.copy()
+            new_args['prefix_uid'] = prefix
+            with Connection(redis.from_url(current_app.config["REDIS_URL"])):
+                q = Queue(name="collect", default_timeout=default_timeout)
+                task = q.enqueue(create_task_collect_results, new_args)
+    response_object = {
+        "status": "success",
+        "data": {
+            "task_id": task.get_id()
+        }
+    }
+    return jsonify(response_object), 202
 
 def prepare_process_task_arguments(partition_size, grobid_ns, softcite_ns, datastet_ns):
     """Populate services namespaces with list of partitions"""

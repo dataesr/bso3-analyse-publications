@@ -28,6 +28,15 @@ def upload_object(container: str, filename: str) -> None:
     cmd = init_cmd + f' upload {container} {filename}'
     os.system(cmd)
 
+def download_container(container, download_prefix, volume_destination):
+    cmd =  init_cmd + f' download {container} -D {volume_destination}/{container} --skip-identical'
+    if download_prefix:
+        cmd += f" --prefix {download_prefix}"
+    os.system(cmd)
+    if download_prefix:
+        return f'{volume_destination}/{container}/{download_prefix}'
+    return f'{volume_destination}/{container}'
+
 def get_ip():
     ip = requests.get('https://api.ipify.org').text
     return ip

@@ -13,12 +13,16 @@ import requests
 from infrastructure.database.db_handler import DBHandler
 from infrastructure.storage.swift import Swift
 from config.harvester_config import config_harvester
-from application.server.main.utils import download_object
+from application.server.main.utils import download_object, upload_object, download_container
 from harvester.OAHarvester import OAHarvester
 from config.db_config import engine
 from ovh_handler import download_files, upload_and_clean_up
 from config.processing_service_namespaces import ServiceNamespace, grobid_ns, softcite_ns, datastet_ns
 from config.logger_config import LOGGER_LEVEL
+from application.server.main.parse_grobid import json_grobid
+from application.server.main.parse_datastet import json_datastet
+from application.server.main.parse_softcite import json_softcite
+
 
 from grobid_client.grobid_client import GrobidClient
 
@@ -167,3 +171,58 @@ def get_grobid_version() -> str:
     url = f"http://{config['grobid_server']}:{config['grobid_port']}/api/version"
     grobid_version = requests.get(url).text
     return grobid_version
+
+def create_task_collect_results(args):
+    volume = '/data'
+    container = 'bso3_publications_dump'
+    prefix_uid = args.get('prefix_uid', '')
+    logger.debug(f'analyze for prefix {prefix_uid}')
+    GROBID_VERSIONS = args.get('GROBID_VERSIONS', [])
+    SOFTCITE_VERSIONS = args.get('SOFTCITE_VERSIONS', [])
+    DATASTET_VERSIONS = args.get('DATASTET_VERSIONS', [])
+    if args.get('download', False):
+        #for fileType in ['metadata', 'grobid', 'softcite', 'datastet']:
+        for fileType in ['metadata', 'grobid', 'softcite', 'datastet']:
+            logger.debug(f'getting {fileType} data')
+            download_container(container, f'{fileType}/{prefix_uid}', volume)
+    #read_all_results(prefix_uid, GROBID_VERSIONS, SOFTCITE_VERSIONS, DATASTET_VERSIONS)
+
+def read_all_results(prefix_uid, GROBID_VERSIONS, SOFTCITE_VERSIONS, DATASTET_VERSIONS):
+    volume = '/data'
+    container = 'bso3_publications_dump'
+    ix = 0
+    all_data = []
+    for root, dirs, files in os.walk(f'{volume}/{container}/metadata/{prefix_uid}'):
+        if files:
+            for f in files:
+                metadata_filename = f'{root}/{f}'
+                uid = f.replace('.json.gz', '')
+                #logger.debug(f'parsing {uid}')
+                grobid_filename   = root.replace('metadata', 'grobid')   + '/' + f.replace('.json.gz', '.pdf.tei.xml')
+                softcite_filename = root.replace('metadata', 'softcite') + '/' + f.replace('.json.gz', '.software.json')
+                datastet_filename = root.replace('metadata', 'datastet') + '/' + f.replace('.json.gz', '.dataset.json')
+                try:
+                    df_metadata = pd.read_json(metadata_filename, lines=True, orient='records')[['doi', 'id']]
+                    df_metadata.columns = ['doi', 'uid']
+                    res = df_metadata.to_dict(orient='records')[0]
+                    res['sources'] = ['bso3']
+                    res['bso3_downloaded'] = True
+                except:
+                    logger.debug(f'error with metadata {metadata_filename}')
+                    continue
+                if os.path.exists(grobid_filename):
+                    res.update(json_grobid(grobid_filename, GROBID_VERSIONS))
+                    res['bso3_analyzed_grobid'] = True
+                if os.path.exists(softcite_filename):
+                    res.update(json_softcite(softcite_filename, SOFTCITE_VERSIONS))
+                    res['bso3_analyzed_softcite'] = True
+                if os.path.exists(datastet_filename):
+                    res.update(json_datastet(datastet_filename, DATASTET_VERSIONS))
+                    res['bso3_analyzed_datastet'] = True
+                ix += 1
+                all_data.append(res)
+                if ix % 1000 == 0:
+                    logger.debug(f'{ix} files read')
+    result_filename = f'bso3_data_{prefix_uid}.jsonl'
+    pd.DataFrame(all_data).to_json(result_filename, lines=True, orient='records')
+    upload_object(container, result_filename, f'final_for_bso/{result_filename}')
