@@ -70,8 +70,17 @@ def run_task_harvest_partitions():
         upload_object('misc', 'harvested_doi.csv')
 
     os.system('cd /src && mkdir -p tmp')
-    os.system(f'{init_cmd} list bso_dump --prefix bso-publications-split > /src/tmp/list_files')
-    list_files = [k.strip() for k in open('/src/tmp/list_files', 'r').readlines()]
+    
+    os.system(f'cd /src/tmp && {init_cmd} download bso_dump bso-publications-latest.jsonl.gz')
+    os.system(f'cd /src/tmp && zcat bso-publications-latest.jsonl.gz | split -l 5000 - bso-publications-split')
+    list_files = []
+    for f in os.listdir('/src/tmp'):
+        if 'bso-publications-split' in f:
+            os.system(f'cd /src/tmp && {init_cmd} upload bso_dump {f}')
+            list_files.append(f)
+
+    #os.system(f'{init_cmd} list bso_dump --prefix bso-publications-split > /src/tmp/list_files')
+    #list_files = [k.strip() for k in open('/src/tmp/list_files', 'r').readlines()]
 
     logger.debug(f'len files = {len(list_files)}')
     for partition_index, current_file in enumerate(list_files):
