@@ -143,7 +143,7 @@ class OAHarvester:
                     {
                         "id": entry["id"],
                         "doi": entry["doi"],
-                        "domain": entry["bso_classification"],
+                        "domain": entry.get("bso_classification", "unknown"),
                         "oa_locations": oa_locations,
                     },
                     os.path.join(DATA_PATH, entry["id"] + PUBLICATION_EXT),

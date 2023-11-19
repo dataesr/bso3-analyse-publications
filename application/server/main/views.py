@@ -101,7 +101,7 @@ def run_task_process():
     Process publications using Grobid, Softcite and Datastet
     """
     args = request.get_json(force=True)
-    partition_size = args.get("partition_size", 1_000)
+    partition_size = args.get("partition_size", 100)
     grobid_ns.spec_version = args.get("spec_grobid_version", "0")
     softcite_ns.spec_version = args.get("spec_softcite_version", "0")
     datastet_ns.spec_version = args.get("spec_datastet_version", "0")
