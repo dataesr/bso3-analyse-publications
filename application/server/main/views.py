@@ -181,6 +181,10 @@ def filter_publications(db_records: List[ProcessedEntry], condition: Callable) -
     """Return db_records matching the condition"""
     return [record for record in db_records if condition(record)]
 
+@main_blueprint.route("/load_matcher", methods=["POST"])
+def run_task_load_matcher():
+    requests.get('http://affiliation-matcher:5001/load')
+
 @main_blueprint.route('/tasks/<task_id>', methods=['GET'])
 def get_status(task_id):
     with Connection(redis.from_url(current_app.config['REDIS_URL'])):

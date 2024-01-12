@@ -7,13 +7,14 @@ from time import time
 from glob import glob
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
-
+import pickle
+import pandas as pd
 import requests
 
 from infrastructure.database.db_handler import DBHandler
 from infrastructure.storage.swift import Swift
 from config.harvester_config import config_harvester
-from application.server.main.utils import download_object, upload_object, download_container
+from application.server.main.utils import download_object, upload_object, download_container, delete_object, upload_object_with_destination
 from harvester.OAHarvester import OAHarvester
 from config.db_config import engine
 from ovh_handler import download_files, upload_and_clean_up
@@ -181,11 +182,43 @@ def create_task_collect_results(args):
     SOFTCITE_VERSIONS = args.get('SOFTCITE_VERSIONS', [])
     DATASTET_VERSIONS = args.get('DATASTET_VERSIONS', [])
     if args.get('download', False):
-        #for fileType in ['metadata', 'grobid', 'softcite', 'datastet']:
-        for fileType in ['metadata', 'grobid', 'softcite', 'datastet']:
+        for fileType in ['metadata', 'grobid-0.8.0/publication', 'softcite-0.8.0/publication', 'datastet-0.8.0/publication']:
+        #for fileType in ['metadata']:
             logger.debug(f'getting {fileType} data')
             download_container(container, f'{fileType}/{prefix_uid}', volume)
-    #read_all_results(prefix_uid, GROBID_VERSIONS, SOFTCITE_VERSIONS, DATASTET_VERSIONS)
+    read_all_results(prefix_uid, GROBID_VERSIONS, SOFTCITE_VERSIONS, DATASTET_VERSIONS)
+    #clean_os(prefix_uid)
+
+def clean_os(prefix_uid):
+    volume = '/data'
+    container = 'bso3_publications_dump'
+    fr_dois = pickle.load(open('/data/french_dois.pkl', 'rb'))
+    ix = 0
+    all_data = []
+    nb_files = 0
+    nb_files_del = 0
+    for root, dirs, files in os.walk(f'{volume}/{container}/metadata/{prefix_uid}'):
+        if files:
+            for f in files:
+                metadata_filename = f'{root}/{f}'
+                uid = f.replace('.json.gz', '')
+                try:
+                    df_metadata = pd.read_json(metadata_filename, lines=True, orient='records')[['doi', 'id']]
+                    df_metadata.columns = ['doi', 'uid']
+                    res = df_metadata.to_dict(orient='records')[0]
+                    nb_files += 1
+                    if res['doi'] not in fr_dois:
+                        os_filename = metadata_filename.replace('/data/bso3_publications_dump/', '')
+                        pdf_filename = os_filename.replace('metadata/', 'publication/').replace('.json.gz', '.pdf.gz')
+                        logger.debug(f"delete {res['doi']} {res['uid']} {metadata_filename}")
+                        delete_object(container, os_filename)
+                        delete_object(container, pdf_filename)
+                        nb_files_del += 1
+                        logger.debug(f'file {nb_files_del} deleted, {nb_files} read')
+                except:
+                    logger.debug(f'error with metadata {metadata_filename}')
+                    continue
+
 
 def read_all_results(prefix_uid, GROBID_VERSIONS, SOFTCITE_VERSIONS, DATASTET_VERSIONS):
     volume = '/data'
@@ -198,9 +231,9 @@ def read_all_results(prefix_uid, GROBID_VERSIONS, SOFTCITE_VERSIONS, DATASTET_VE
                 metadata_filename = f'{root}/{f}'
                 uid = f.replace('.json.gz', '')
                 #logger.debug(f'parsing {uid}')
-                grobid_filename   = root.replace('metadata', 'grobid')   + '/' + f.replace('.json.gz', '.pdf.tei.xml')
-                softcite_filename = root.replace('metadata', 'softcite') + '/' + f.replace('.json.gz', '.software.json')
-                datastet_filename = root.replace('metadata', 'datastet') + '/' + f.replace('.json.gz', '.dataset.json')
+                grobid_filename   = root.replace('metadata', 'grobid-0.8.0/publication')   + '/' + f.replace('.json.gz', '.grobid.tei.xml')
+                softcite_filename = root.replace('metadata', 'softcite-0.8.0/publication') + '/' + f.replace('.json.gz', '.software.json')
+                datastet_filename = root.replace('metadata', 'datastet-0.8.0/publication') + '/' + f.replace('.json.gz', '.dataset.json')
                 try:
                     df_metadata = pd.read_json(metadata_filename, lines=True, orient='records')[['doi', 'id']]
                     df_metadata.columns = ['doi', 'uid']
@@ -225,4 +258,4 @@ def read_all_results(prefix_uid, GROBID_VERSIONS, SOFTCITE_VERSIONS, DATASTET_VE
                     logger.debug(f'{ix} files read')
     result_filename = f'bso3_data_{prefix_uid}.jsonl'
     pd.DataFrame(all_data).to_json(result_filename, lines=True, orient='records')
-    upload_object(container, result_filename, f'final_for_bso/{result_filename}')
+    upload_object_with_destination(container, result_filename, f'final_for_bso_2024/{result_filename}')
