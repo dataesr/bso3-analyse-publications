@@ -108,6 +108,15 @@ def run_task_process():
     break_after_one = args.get("break_after_one", False)
     prepare_process_task_arguments(partition_size, grobid_ns, softcite_ns, datastet_ns)
     response_objects = []
+    logger.debug('grobid : ')
+    logger.debug(len(grobid_ns.partitions))
+    logger.debug(grobid_ns.partitions[0])
+    logger.debug('softcite : ')
+    logger.debug(softcite_ns.partitions[0])
+    logger.debug(softcite_ns.partitions[0])
+    logger.debug('datastet : ')
+    logger.debug(datastet_ns.partitions[0])
+    logger.debug(datastet_ns.partitions[0])
     with Connection(redis.from_url(current_app.config["REDIS_URL"])):
         q = Queue(name="pdf-processor", default_timeout=default_timeout)
         for grobid_partition, softcite_partition, datastet_partition in zip(grobid_ns.partitions, softcite_ns.partitions, datastet_ns.partitions):
@@ -148,19 +157,91 @@ def run_task_collect():
     }
     return jsonify(response_object), 202
 
+def get_grobid_filter(record):
+    uuid = record[1]
+    if os.path.isfile(f'/data/bso3_publications_dump/grobid-0.8.0/publication/{uuid[0:2]}/{uuid[2:4]}/{uuid[4:6]}/{uuid[6:8]}/{uuid}/{uuid}.grobid.tei.xml'):
+        return False
+    return True
+
+def get_softcite_filter(record):
+    uuid = record[1]
+    if os.path.isfile(f'/data/bso3_publications_dump/softcite-0.8.0/publication/{uuid[0:2]}/{uuid[2:4]}/{uuid[4:6]}/{uuid[6:8]}/{uuid}/{uuid}.software.json'):
+        return False
+    return True
+
+def get_datastet_filter(record):
+    uuid = record[1]
+    if os.path.isfile(f'/data/bso3_publications_dump/datastet-0.8.0/publication/{uuid[0:2]}/{uuid[2:4]}/{uuid[4:6]}/{uuid[6:8]}/{uuid}/{uuid}.dataset.json'):
+        return False
+    return True
+
+def chunks(lst, n):
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
+
+def load_already_processed():
+    already_processed = {}
+    for current_service in ['grobid', 'softcite', 'datastet']:
+        nb_loaded = 0
+        logger.debug(f'loadind existing data for {current_service}')
+        for e in os.walk(f'/data/bso3_publications_dump/{current_service}-0.8.0/publication'):
+            if len(e)>=3:
+                    for f in e[2]:
+                        if '.json' in f or '.xml' in f:
+                            current_uuid = f.split('.')[0]
+                            nb_loaded += 1
+                            if current_uuid not in already_processed:
+                                already_processed[current_uuid] = []
+                            if current_service not in already_processed[current_uuid]:
+                                already_processed[current_uuid].append(current_service)
+        logger.debug(f'{len(already_processed)} UUID processed')
+    return already_processed
+
+
 def prepare_process_task_arguments(partition_size, grobid_ns, softcite_ns, datastet_ns):
     """Populate services namespaces with list of partitions"""
     storage_handler = Swift(config_harvester)
     db_handler: DBHandler = DBHandler(engine=engine, table_name="harvested_status_table", swift_handler=storage_handler)
-    db_records = db_handler.fetch_all()
+    db_records = db_handler.fetch_all() # list of tuples ex ('10.3390/molecules22020239', '00002286-7505-4a3d-ab3d-718925e1510d', '1', '0.7.3-SNAPSHOT', '0.7.2', 'standard', 'Biology (fond.)', 'https://europepmc.org/articles/pmc6155680?pdf=render', datetime.datetime(2022, 6, 24, 19, 0), '0.7.3-SNAPSHOT')
 
-    grobid_filter = lambda record: record.grobid_version < grobid_ns.spec_version
-    softcite_filter = lambda record: record.softcite_version < softcite_ns.spec_version
-    datastet_filter = lambda record: record.datastet_version < datastet_ns.spec_version
-    filter_services = [grobid_filter, softcite_filter, datastet_filter]
+    records_to_process = {'grobid': [], 'softcite': [], 'datastet': [] }
+
+    already_processed = load_already_processed()
+
+    ITER_IX = 1000
+    max_ix = int(len(db_records) / ITER_IX)+1
+    for ix, r in enumerate(db_records):
+        current_uuid = r[1]
+        already_done = []
+        if current_uuid in already_processed:
+            already_done = already_processed[current_uuid]
+        if 'datastet' not in already_done:
+            records_to_process['datastet'].append(r)
+        if 'softcite' not in already_done:
+            records_to_process['softcite'].append(r)
+        if 'grobid' not in already_done:
+            records_to_process['grobid'].append(r)
+        if ix % ITER_IX == 0:
+            logger.debug(f'checking which files to process ix = {ix/ITER_IX} / {max_ix}')
+    files_to_process = {}
+    for s in ['grobid', 'softcite', 'datastet']:
+        logger.debug(f'{s} : {len(records_to_process[s])} files to process')
+        files_to_process[s] = sorted([
+            str(OvhPath(PUBLICATION_PREFIX, generateStoragePath(record.uuid), record.uuid + PUBLICATION_EXT + COMPRESSION_EXT))
+            for record in records_to_process[s]
+        ])
+    grobid_ns.partitions = get_partitions(files_to_process['grobid'], partition_size)
+    softcite_ns.partitions = get_partitions(files_to_process['softcite'], partition_size)
+    datastet_ns.partitions = get_partitions(files_to_process['datastet'], partition_size)
+
+    #grobid_filter = lambda record: record.grobid_version < grobid_ns.spec_version
+    #softcite_filter = lambda record: record.softcite_version < softcite_ns.spec_version
+    #datastet_filter = lambda record: record.datastet_version < datastet_ns.spec_version
+    #filter_services = [grobid_filter, softcite_filter, datastet_filter]
     services = [grobid_ns, softcite_ns, datastet_ns]
-    for service, _filter in zip(services, filter_services):
-        service.partitions = get_partitions(get_files_to_process(db_records, _filter), partition_size)
+    #for service, _filter in zip(services, filter_services):
+    #    service.partitions = get_partitions(get_files_to_process(db_records, _filter), partition_size)
     # Padding partitions with empty lists so we can use zip later
     # otherwise zip would stop iterating as the end of the shortest list
     longuest_list_len = max(len(grobid_ns.partitions), len(softcite_ns.partitions), len(datastet_ns.partitions))

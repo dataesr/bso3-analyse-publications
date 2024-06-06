@@ -39,10 +39,16 @@ def download_files(_swift, dest_dir, files):
 
 def upload_and_clean_up(_swift: Swift, service_ns: SimpleNamespace):
     files = glob(service_ns.dir + "*")
-    files_to_upload = [
-        (file, OvhPath(service_ns.prefix, generateStoragePath(os.path.basename(file).split(".")[0]), os.path.basename(file)))
-        for file in files if file.endswith(service_ns.suffix)
-    ]
+    files_to_upload = []
+    for file in files:
+        if file.endswith(service_ns.suffix):
+            current_uuid = os.path.basename(file).split(".")[0]
+            destination_path = OvhPath(service_ns.prefix+'-0.8.0-newround/publication', generateStoragePath(current_uuid), os.path.basename(file))
+            files_to_upload.append((file, destination_path))
+    #files_to_upload = [
+    #    (file, OvhPath(service_ns.prefix, generateStoragePath(os.path.basename(file).split(".")[0]), os.path.basename(file)))
+    #    for file in files if file.endswith(service_ns.suffix)
+    #]
     _swift.upload_files_to_swift(_swift.config["publications_dump"], files_to_upload)
     for file in files:
         os.remove(file)

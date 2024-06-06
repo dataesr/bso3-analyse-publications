@@ -182,7 +182,10 @@ def create_task_collect_results(args):
     SOFTCITE_VERSIONS = args.get('SOFTCITE_VERSIONS', [])
     DATASTET_VERSIONS = args.get('DATASTET_VERSIONS', [])
     if args.get('download', False):
-        for fileType in ['metadata', 'grobid-0.8.0/publication', 'softcite-0.8.0/publication', 'datastet-0.8.0/publication']:
+        for fileType in ['metadata', 
+                'grobid-0.8.0/publication', 'softcite-0.8.0/publication', 'datastet-0.8.0/publication',
+                'grobid-0.8.0-newround/publication', 'softcite-0.8.0-newround/publication', 'datastet-0.8.0-newround/publication',
+                ]:
         #for fileType in ['metadata']:
             logger.debug(f'getting {fileType} data')
             download_container(container, f'{fileType}/{prefix_uid}', volume)
@@ -258,4 +261,4 @@ def read_all_results(prefix_uid, GROBID_VERSIONS, SOFTCITE_VERSIONS, DATASTET_VE
                     logger.debug(f'{ix} files read')
     result_filename = f'bso3_data_{prefix_uid}.jsonl'
     pd.DataFrame(all_data).to_json(result_filename, lines=True, orient='records')
-    upload_object_with_destination(container, result_filename, f'final_for_bso_2024/{result_filename}')
+    upload_object_with_destination(container, result_filename, f'final_for_bso_2025/{result_filename}')
