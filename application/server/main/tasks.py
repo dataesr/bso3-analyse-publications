@@ -234,9 +234,11 @@ def read_all_results(prefix_uid, GROBID_VERSIONS, SOFTCITE_VERSIONS, DATASTET_VE
                 metadata_filename = f'{root}/{f}'
                 uid = f.replace('.json.gz', '')
                 #logger.debug(f'parsing {uid}')
-                grobid_filename   = root.replace('metadata', 'grobid-0.8.0/publication')   + '/' + f.replace('.json.gz', '.grobid.tei.xml')
-                softcite_filename = root.replace('metadata', 'softcite-0.8.0/publication') + '/' + f.replace('.json.gz', '.software.json')
-                datastet_filename = root.replace('metadata', 'datastet-0.8.0/publication') + '/' + f.replace('.json.gz', '.dataset.json')
+                grobid_filenames, softcite_filenames, datastet_filenames   = [], [], []
+                for label in ['0.8.0', '0.8.0-newround']:
+                    grobid_filenames.append(root.replace('metadata', f'grobid-{label}/publication')   + '/' + f.replace('.json.gz', '.grobid.tei.xml'))
+                    softcite_filenames.append(root.replace('metadata', f'softcite-{label}/publication') + '/' + f.replace('.json.gz', '.software.json'))
+                    datastet_filenames.append(root.replace('metadata', f'datastet-{label}/publication') + '/' + f.replace('.json.gz', '.dataset.json'))
                 try:
                     df_metadata = pd.read_json(metadata_filename, lines=True, orient='records')[['doi', 'id']]
                     df_metadata.columns = ['doi', 'uid']
@@ -246,15 +248,18 @@ def read_all_results(prefix_uid, GROBID_VERSIONS, SOFTCITE_VERSIONS, DATASTET_VE
                 except:
                     logger.debug(f'error with metadata {metadata_filename}')
                     continue
-                if os.path.exists(grobid_filename):
-                    res.update(json_grobid(grobid_filename, GROBID_VERSIONS))
-                    res['bso3_analyzed_grobid'] = True
-                if os.path.exists(softcite_filename):
-                    res.update(json_softcite(softcite_filename, SOFTCITE_VERSIONS))
-                    res['bso3_analyzed_softcite'] = True
-                if os.path.exists(datastet_filename):
-                    res.update(json_datastet(datastet_filename, DATASTET_VERSIONS))
-                    res['bso3_analyzed_datastet'] = True
+                for grobid_filename in grobid_filenames:
+                    if os.path.exists(grobid_filename):
+                        res.update(json_grobid(grobid_filename, GROBID_VERSIONS))
+                        res['bso3_analyzed_grobid'] = True
+                for softcite_filename in softcite_filenames:
+                    if os.path.exists(softcite_filename):
+                        res.update(json_softcite(softcite_filename, SOFTCITE_VERSIONS))
+                        res['bso3_analyzed_softcite'] = True
+                for datastet_filename in datastet_filenames:
+                    if os.path.exists(datastet_filename):
+                        res.update(json_datastet(datastet_filename, DATASTET_VERSIONS))
+                        res['bso3_analyzed_datastet'] = True
                 ix += 1
                 all_data.append(res)
                 if ix % 1000 == 0:

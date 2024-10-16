@@ -15,9 +15,9 @@ from harvester.base_api_client import BaseAPIClient
 from harvester.elsevier_client import ElsevierClient
 from harvester.exception import FailedRequest
 from harvester.wiley_client import WileyClient
-from application.server.main.utils import init_cmd
 from application.server.main.tasks import create_task_harvest, create_task_process, create_task_collect_results
-from application.server.main.utils import upload_object, get_ip
+from application.server.main.utils import init_cmd, upload_object, get_ip
+from application.server.main.mentions import load_all_mentions
 from ovh_handler import generateStoragePath, get_partitions
 from config.db_config import engine
 from domain.processed_entry import ProcessedEntry
@@ -149,6 +149,21 @@ def run_task_collect():
             with Connection(redis.from_url(current_app.config["REDIS_URL"])):
                 q = Queue(name="collect", default_timeout=default_timeout)
                 task = q.enqueue(create_task_collect_results, new_args)
+    response_object = {
+        "status": "success",
+        "data": {
+            "task_id": task.get_id()
+        }
+    }
+    return jsonify(response_object), 202
+
+
+@main_blueprint.route("/load_mentions", methods=["POST"])
+def run_task_load_mentions():
+    args = request.get_json(force=True)
+    with Connection(redis.from_url(current_app.config["REDIS_URL"])):
+        q = Queue(name="collect", default_timeout=default_timeout)
+        task = q.enqueue(load_all_mentions, args)
     response_object = {
         "status": "success",
         "data": {
