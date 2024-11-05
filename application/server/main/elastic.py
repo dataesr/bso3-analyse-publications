@@ -53,7 +53,7 @@ def reset_index(index: str) -> None:
         }
     }
     mappings = {'properties': {}}
-    for f in ['authors.first_name', 'authors.last_name', 'rawForm', 'normalizedForm']: 
+    for f in ['authors.first_name', 'authors.last_name', 'authors.full_name', 'rawForm', 'normalizedForm']: 
         mappings['properties'][f] = {
             'type': 'text',
             'analyzer': 'light',
