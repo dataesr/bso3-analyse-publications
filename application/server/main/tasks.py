@@ -236,7 +236,10 @@ def read_all_results(prefix_uid, GROBID_VERSIONS, SOFTCITE_VERSIONS, DATASTET_VE
                 #logger.debug(f'parsing {uid}')
                 grobid_filenames, softcite_filenames, datastet_filenames   = [], [], []
                 for label in ['0.8.0', '0.8.0-newround']:
-                    grobid_filenames.append(root.replace('metadata', f'grobid-{label}/publication')   + '/' + f.replace('.json.gz', '.grobid.tei.xml'))
+                    if label == '0.8.0':
+                        grobid_filenames.append(root.replace('metadata', f'grobid-{label}/publication')   + '/' + f.replace('.json.gz', '.grobid.tei.xml'))
+                    elif label == '0.8.0-newround':
+                        grobid_filenames.append(root.replace('metadata', f'grobid-{label}/publication')   + '/' + f.replace('.json.gz', '.pdf.tei.xml'))
                     softcite_filenames.append(root.replace('metadata', f'softcite-{label}/publication') + '/' + f.replace('.json.gz', '.software.json'))
                     datastet_filenames.append(root.replace('metadata', f'datastet-{label}/publication') + '/' + f.replace('.json.gz', '.dataset.json'))
                 try:
@@ -266,4 +269,4 @@ def read_all_results(prefix_uid, GROBID_VERSIONS, SOFTCITE_VERSIONS, DATASTET_VE
                     logger.debug(f'{ix} files read')
     result_filename = f'bso3_data_{prefix_uid}.jsonl'
     pd.DataFrame(all_data).to_json(result_filename, lines=True, orient='records')
-    upload_object_with_destination(container, result_filename, f'final_for_bso_2025/{result_filename}')
+    upload_object_with_destination(container, result_filename, f'final_for_bso_2025_v2/{result_filename}')

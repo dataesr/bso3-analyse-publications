@@ -25,9 +25,23 @@ def format_mentions(obj):
         raw_mentions += obj.get('softcite_details').get('raw_mentions')
     for m in raw_mentions:
         elt = {}
-        for f in ['doi', 'authors', 'grants', 'has_grant']:
+        for f in ['doi', 'authors', 'grants', 'has_grant', 'affiliations']:
             if obj.get(f):
                 elt[f] = obj[f]
+            if f == 'authors' and obj.get('authors') and isinstance(obj['authors'], list):
+                for a in elt['authors']:
+                    if isinstance(a, dict):
+                        if a.get('affiliations'):
+                            del a['affiliations']
+                        full_name = ''
+                        if a.get('first_name') and a['first_name']:
+                            full_name += a['first_name']
+                            del a['first_name']
+                        if a.get('last_name'):
+                            full_name += ' ' + a['last_name']
+                            del a['last_name']
+                        if full_name:
+                            a['full_name'] = full_name.strip()
         elt.update(m)
         mentions.append(elt)
     return mentions
