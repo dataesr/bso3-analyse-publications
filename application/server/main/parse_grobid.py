@@ -11,7 +11,12 @@ def json_grobid(filename, GROBID_VERSIONS):
     except:
         logger.debug(f'error reading grobid {filename}')
         return {}
-    version = grobid.find('application', {'ident': 'GROBID'}).attrs['version']
+    version = '0.0'
+    try:
+        version = grobid.find('application', {'ident': 'GROBID'}).attrs['version']
+    except:
+        logger.debug(f'error reading grobid {filename}')
+        return {}
     if version not in GROBID_VERSIONS:
         return {}
     return parse_grobid(grobid)

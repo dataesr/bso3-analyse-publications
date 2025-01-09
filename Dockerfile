@@ -20,8 +20,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     locales-all \
     python3-setuptools \
     g++ \
-    libpq-dev \
-    gcc \
     git \
     python3-dev \
     npm \
@@ -40,11 +38,14 @@ RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && python3.8 get-pip
 RUN curl -fsSL https://deb.nodesource.com/setup_16.x | bash -
 RUN apt-get install -y nodejs
 
+RUN apt-get install -y libpq-dev
+RUN apt-get install -y gcc
+
 WORKDIR /src
 
-ENV LC_ALL en_US.UTF-8
-ENV LANG en_US.UTF-8
-ENV LANGUAGE en_US.UTF-8
+ENV LC_ALL=en_US.UTF-8
+ENV LANG=en_US.UTF-8
+ENV LANGUAGE=en_US.UTF-8
 
 COPY requirements.txt /src/requirements.txt
 
