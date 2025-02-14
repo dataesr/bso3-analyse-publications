@@ -1,11 +1,14 @@
 from elasticsearch import Elasticsearch
 import os
 from application.server.main.logger import get_logger
+
 ES_LOGIN_BSO3_BACK = os.getenv("ES_LOGIN_BSO3_BACK", "")
 ES_PASSWORD_BSO3_BACK = os.getenv("ES_PASSWORD_BSO3_BACK", "")
 ES_URL = os.getenv("ES_URL2", "http://localhost:9200")
 client = None
 logger = get_logger(__name__)
+
+
 def get_client():
     global client
     if client is None:

@@ -5,8 +5,9 @@ from urllib import parse
 from application.server.main.utils import download_container
 from application.server.main.elastic import reset_index
 from application.server.main.logger import get_logger
-logger = get_logger(__name__)
 
+
+logger = get_logger(__name__)
 
 # Elastic Searh configurations
 ES_LOGIN_BSO3_BACK = os.getenv("ES_LOGIN_BSO3_BACK", "")
@@ -29,19 +30,21 @@ def format_mentions(obj):
             if obj.get(f):
                 elt[f] = obj[f]
             if f == 'authors' and obj.get('authors') and isinstance(obj['authors'], list):
-                for a in elt['authors']:
-                    if isinstance(a, dict):
-                        if a.get('affiliations'):
-                            del a['affiliations']
+                for author in elt['authors']:
+                    if isinstance(author, dict):
+                        if author.get('affiliations'):
+                            del author['affiliations']
                         full_name = ''
-                        if a.get('first_name') and a['first_name']:
-                            full_name += a['first_name']
-                            del a['first_name']
-                        if a.get('last_name'):
-                            full_name += ' ' + a['last_name']
-                            del a['last_name']
+                        if author.get('first_name') and author['first_name']:
+                            full_name += author['first_name']
+                            del author['first_name']
+                        if author.get('last_name'):
+                            full_name += ' ' + author['last_name']
+                            del author['last_name']
                         if full_name:
-                            a['full_name'] = full_name.strip()
+                            author['full_name'] = full_name.strip()
+                elt['authors'] = ','.join([f"{author.get('full_name')},{author.get('email')}" for author in elt['authors']])
+            elt['affiliations'] = ','.join([affiliation.get('name') for affiliation in elt['affiliations']])
         elt.update(m)
         mentions.append(elt)
     return mentions
