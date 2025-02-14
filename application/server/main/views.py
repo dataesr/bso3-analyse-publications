@@ -139,7 +139,6 @@ def run_task_collect():
     Collect results from Grobid, Softcite and Datastet
     """
     args = request.get_json(force=True)
-
     hex_digits = string.hexdigits[0:16]
     for x in hex_digits:
         for y in hex_digits:

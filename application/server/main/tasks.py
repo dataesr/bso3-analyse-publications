@@ -186,11 +186,9 @@ def create_task_collect_results(args):
                 'grobid-0.8.0/publication', 'softcite-0.8.0/publication', 'datastet-0.8.0/publication',
                 'grobid-0.8.0-newround/publication', 'softcite-0.8.0-newround/publication', 'datastet-0.8.0-newround/publication',
                 ]:
-        #for fileType in ['metadata']:
             logger.debug(f'getting {fileType} data')
             download_container(container, f'{fileType}/{prefix_uid}', volume)
     read_all_results(prefix_uid, GROBID_VERSIONS, SOFTCITE_VERSIONS, DATASTET_VERSIONS)
-    #clean_os(prefix_uid)
 
 def clean_os(prefix_uid):
     volume = '/data'
@@ -233,7 +231,6 @@ def read_all_results(prefix_uid, GROBID_VERSIONS, SOFTCITE_VERSIONS, DATASTET_VE
             for f in files:
                 metadata_filename = f'{root}/{f}'
                 uid = f.replace('.json.gz', '')
-                #logger.debug(f'parsing {uid}')
                 grobid_filenames, softcite_filenames, datastet_filenames   = [], [], []
                 for label in ['0.8.0', '0.8.0-newround']:
                     if label == '0.8.0':
