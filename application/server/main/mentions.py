@@ -14,7 +14,7 @@ ES_PASSWORD_BSO3_BACK = os.getenv("ES_PASSWORD_BSO3_BACK", "")
 ES_URL = os.getenv("ES_URL2", "http://localhost:9200")
 
 def get_mentions_data():
-    download_container('bso3_publications_dump', download_prefix='final_for_bso_2025', volume_destination="/data") 
+    download_container('bso3_publications_dump', download_prefix='final_for_bso_2025_v2', volume_destination="/data")
 
 def format_mentions(obj):
     mentions = []
@@ -48,7 +48,7 @@ def format_mentions(obj):
 
 def transform_and_load(suffix, new_index_name):
     all_mentions = []
-    with jsonlines.open(f'/data/bso3_publications_dump/final_for_bso_2025/bso3_data_{suffix}.jsonl') as reader:
+    with jsonlines.open(f'/data/bso3_publications_dump/final_for_bso_2025_v2/bso3_data_{suffix}.jsonl') as reader:
         for obj in reader:
             all_mentions += format_mentions(obj)
     with jsonlines.open(f'/data/current_mentions_{suffix}.jsonl', mode='w') as writer:
