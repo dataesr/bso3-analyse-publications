@@ -14,9 +14,9 @@ def json_datastet(filename, DATASTET_VERSIONS):
     if version not in DATASTET_VERSIONS:
         return {}
     logger.debug(filename)
-    return parse_mentions(p=p, tool_type='datastet')
+    return parse_mentions(p=p, tool_type='datastet', version=version)
 
-def parse_mentions(p, tool_type):
+def parse_mentions(p, tool_type, version):
     details = {'mentions': [], 'raw_mentions': [], 
                         'used': [], 'created': [], 'shared': [],
                         'url': [], 'wikidata': [],
@@ -24,6 +24,7 @@ def parse_mentions(p, tool_type):
                         'nb_used': 0, 'nb_created': 0, 'nb_shared': 0, 'nb_mentions': 0
                        }
     res = {f'{tool_type}_details': details}
+    res[f'{tool_type}_version'] = version
     is_implicit_only = True
     for m in p['mentions']:
         raw_mention = copy.deepcopy(m)

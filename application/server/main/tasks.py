@@ -248,17 +248,14 @@ def read_all_results(prefix_uid, GROBID_VERSIONS, SOFTCITE_VERSIONS, DATASTET_VE
                     if os.path.exists(grobid_filename):
                         res.update(json_grobid(grobid_filename, GROBID_VERSIONS))
                         res['bso3_analyzed_grobid'] = True
-                        res['bso3_grobid_version'] = grobid_filename.split("/")[3].replace("grobid-", "")
                 for softcite_filename in softcite_filenames:
                     if os.path.exists(softcite_filename):
                         res.update(json_softcite(softcite_filename, SOFTCITE_VERSIONS))
                         res['bso3_analyzed_softcite'] = True
-                        res['bso3_softcite_version'] = softcite_filename.split("/")[3].replace("softcite-", "")
                 for datastet_filename in datastet_filenames:
                     if os.path.exists(datastet_filename):
                         res.update(json_datastet(datastet_filename, DATASTET_VERSIONS))
                         res['bso3_analyzed_datastet'] = True
-                        res['bso3_datastet_version'] = datastet_filename.split("/")[3].replace("datastet-", "")
                 ix += 1
                 all_data.append(res)
                 if ix % 1000 == 0:

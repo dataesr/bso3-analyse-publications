@@ -14,4 +14,4 @@ def json_softcite(filename, SOFTCITE_VERSIONS):
     if version not in SOFTCITE_VERSIONS:
         return {}
     logger.debug(filename)
-    return parse_mentions(p=p, tool_type='softcite')
+    return parse_mentions(p=p, tool_type='softcite', version=version)

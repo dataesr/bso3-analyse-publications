@@ -19,19 +19,13 @@ def json_grobid(filename, GROBID_VERSIONS):
         return {}
     if version not in GROBID_VERSIONS:
         return {}
-    return parse_grobid(grobid)
+    return parse_grobid(grobid, version)
 
 
-def parse_grobid(grobid):
-    
+def parse_grobid(grobid, version):
     res = {}
-    
-    #doi_elt = grobid.find('idno', {'type': 'DOI'})
-    #if doi_elt:
-    #    res['doi'] = doi_elt.get_text('').strip().lower()
-    
+    res['grobid_version'] = version
     authors, affiliations = [], []
-    
     source_elt = grobid.find('sourcedesc')
     if source_elt:
         for a in source_elt.find_all('author'):
@@ -45,7 +39,6 @@ def parse_grobid(grobid):
         res['authors'] = authors
     if affiliations:
         res['affiliations'] = affiliations
-        
     keywords, abstract = [], []
     profile_elt = grobid.find('profiledesc')
     if profile_elt:
@@ -64,7 +57,6 @@ def parse_grobid(grobid):
     acknowledgement_elt = grobid.find('div',{'type': 'acknowledgement'})
     if acknowledgement_elt:
         res['acknowledgments'] = [{'acknowledgments': acknowledgement_elt.get_text(' ').strip()}]
-        
     references=[]
     ref_elt = grobid.find('div', {'type': 'references'})
     if ref_elt:
@@ -77,17 +69,14 @@ def parse_grobid(grobid):
                 references.append(reference)
     if references:
         res['references'] = references
-
     res['has_availability_statement'] = False
     availability_elt = grobid.find('div', {'type': 'availability'})
     if availability_elt:
         res['has_availability_statement'] = True
-
     grants = parse_funding(grobid)
     if grants:
         res['has_grant'] = True
         res['grants'] = grants
-        
     return res
 
 
