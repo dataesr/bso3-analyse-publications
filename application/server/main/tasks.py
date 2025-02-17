@@ -194,18 +194,15 @@ def clean_os(prefix_uid):
     volume = '/data'
     container = 'bso3_publications_dump'
     fr_dois = pickle.load(open('/data/french_dois.pkl', 'rb'))
-    ix = 0
-    all_data = []
     nb_files = 0
     nb_files_del = 0
     for root, dirs, files in os.walk(f'{volume}/{container}/metadata/{prefix_uid}'):
         if files:
             for f in files:
                 metadata_filename = f'{root}/{f}'
-                uid = f.replace('.json.gz', '')
                 try:
-                    df_metadata = pd.read_json(metadata_filename, lines=True, orient='records')[['doi', 'id']]
-                    df_metadata.columns = ['doi', 'uid']
+                    df_metadata = pd.read_json(metadata_filename, lines=True, orient='records')[['doi', 'id', 'domain']]
+                    df_metadata.columns = ['doi', 'uid', 'domain']
                     res = df_metadata.to_dict(orient='records')[0]
                     nb_files += 1
                     if res['doi'] not in fr_dois:
@@ -230,7 +227,6 @@ def read_all_results(prefix_uid, GROBID_VERSIONS, SOFTCITE_VERSIONS, DATASTET_VE
         if files:
             for f in files:
                 metadata_filename = f'{root}/{f}'
-                uid = f.replace('.json.gz', '')
                 grobid_filenames, softcite_filenames, datastet_filenames   = [], [], []
                 for label in ['0.8.0', '0.8.0-newround']:
                     if label == '0.8.0':
