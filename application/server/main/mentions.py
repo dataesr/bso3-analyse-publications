@@ -4,8 +4,8 @@ import string
 from urllib import parse
 from application.server.main.utils import download_container
 from application.server.main.elastic import reset_index
+from application.server.main.forges import detect_forge
 from application.server.main.logger import get_logger
-
 
 logger = get_logger(__name__)
 
@@ -43,11 +43,41 @@ def format_mentions(obj):
                             del author['last_name']
                         if full_name:
                             author['full_name'] = full_name.strip()
-                elt['authors'] = ','.join([f"{author.get('full_name')},{author.get('email')}" for author in elt['authors']])
-            elt['affiliations'] = ','.join([affiliation.get('name') for affiliation in elt['affiliations']])
+        if elt.get('authors'):
+            assert(isinstance(elt['authors'], list))
+            elt['authors'] = ' ;;; '.join([f"{author.get('full_name')} {author.get('email', '')}" for author in elt['authors']])
+        if elt.get('affiliations'):
+            assert(isinstance(elt['affiliations'], list))
+            elt['affiliations'] = ' ;;; '.join([affiliation.get('name') for affiliation in elt['affiliations']])
         elt.update(m)
+        if isinstance(elt.get('context'), str):
+            forges_urls = detect_forge(elt['context'])
+            if forges_urls:
+                elt['urls'] = [u for u in forges_urls if obj.get('doi').lower() not in u.lower()]
         mentions.append(elt)
     return mentions
+
+def detect_urls(suffix):
+    all_mentions_with_url, all_mentions_with_url_simple = [], []
+    with jsonlines.open(f'/data/bso3_publications_dump/final_for_bso_2025_v2/bso3_data_{suffix}.jsonl') as reader:
+        for obj in reader:
+            tmp = format_mentions(obj)
+            for t in tmp:
+                if t.get('urls'):
+                    all_mentions_with_url.append(t)
+                    logger.debug(f"url detected in {t['doi']} : {t['urls']}")
+                    all_mentions_with_url_simple.append({'doi': t['doi'], 'urls': t['urls']})
+
+    os.system('mkdir -p /data/mentions_with_url')
+    with jsonlines.open(f'/data/mentions_with_url/current_mentions_with_url_{suffix}.jsonl', mode='w') as writer:
+        writer.write_all(all_mentions_with_url_simple)
+
+def detect_all_urls(args):
+    hex_digits = string.hexdigits[0:16]
+    for x in hex_digits:
+        for y in hex_digits:
+            suffix = f'{x}{y}'
+            detect_urls(suffix)
 
 def transform_and_load(suffix, new_index_name):
     all_mentions = []
