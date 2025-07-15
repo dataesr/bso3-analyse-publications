@@ -53,10 +53,10 @@ def create_task_harvest_test(source_metadata_file, wiley_client, elsevier_client
 def create_task_harvest(source_metadata_file, wiley_client, elsevier_client):
     swift_handler = Swift(config_harvester)
     db_handler = DBHandler(engine=engine, table_name='harvested_status_table', swift_handler=swift_handler)
-    os.system('mkdir -p /tmp/bso-publications-split')
-    download_object(container='bso_dump', filename=source_metadata_file, out=f'/tmp/{source_metadata_file}')
-    input_metadata_filename = f'/tmp/{source_metadata_file}'
-    filtered_metadata_filename = f'/tmp/{source_metadata_file}_filtered.gz'
+    os.system('mkdir -p /data/bso-publications-split')
+    download_object(container='bso_dump', filename=source_metadata_file, out=f'/data/{source_metadata_file}')
+    input_metadata_filename = f'/data/{source_metadata_file}'
+    filtered_metadata_filename = f'/data/{source_metadata_file}_filtered.gz'
     doi_list=[]
     nb_elements = write_partitioned_filtered_metadata_file(db_handler, input_metadata_filename, filtered_metadata_filename, doi_list)
     harvester = OAHarvester(config_harvester, wiley_client, elsevier_client)
@@ -177,6 +177,10 @@ def create_task_collect_results(args):
     volume = '/data'
     container = 'bso3_publications_dump'
     prefix_uid = args.get('prefix_uid', '')
+    all_mentions_path = args.get('all_mentions_path')
+    if all_mentions_path is None:
+        logger.debug('missing arg all_mentions_path like final_for_bso_2025_v2') 
+        return
     logger.debug(f'analyze for prefix {prefix_uid}')
     GROBID_VERSIONS = args.get('GROBID_VERSIONS', [])
     SOFTCITE_VERSIONS = args.get('SOFTCITE_VERSIONS', [])
@@ -188,7 +192,7 @@ def create_task_collect_results(args):
                 ]:
             logger.debug(f'getting {fileType} data')
             download_container(container, f'{fileType}/{prefix_uid}', volume)
-    read_all_results(prefix_uid, GROBID_VERSIONS, SOFTCITE_VERSIONS, DATASTET_VERSIONS)
+    read_all_results(prefix_uid, all_mentions_path, GROBID_VERSIONS, SOFTCITE_VERSIONS, DATASTET_VERSIONS)
 
 def clean_os(prefix_uid):
     volume = '/data'
@@ -218,7 +222,7 @@ def clean_os(prefix_uid):
                     continue
 
 
-def read_all_results(prefix_uid, GROBID_VERSIONS, SOFTCITE_VERSIONS, DATASTET_VERSIONS):
+def read_all_results(prefix_uid, output_file, GROBID_VERSIONS, SOFTCITE_VERSIONS, DATASTET_VERSIONS):
     volume = '/data'
     container = 'bso3_publications_dump'
     ix = 0
@@ -262,4 +266,4 @@ def read_all_results(prefix_uid, GROBID_VERSIONS, SOFTCITE_VERSIONS, DATASTET_VE
                     logger.debug(f'{ix} files read')
     result_filename = f'bso3_data_{prefix_uid}.jsonl'
     pd.DataFrame(all_data).to_json(result_filename, lines=True, orient='records')
-    upload_object_with_destination(container, result_filename, f'final_for_bso_2025_v2/{result_filename}')
+    upload_object_with_destination(container, result_filename, f'{output_file}/{result_filename}')
